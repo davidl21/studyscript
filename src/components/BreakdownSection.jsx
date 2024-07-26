@@ -2,7 +2,7 @@ import { features } from "../constants";
 
 const BreakdownSection = () => {
   return (
-    <div className="relative mt-20 border-b border-neutral-800 min-h-[800px]">
+    <div className="relative mt-40 min-h-[400px]">
       <div className="text-center">
         <span className="text-neutral-700 h-6 text-sm px-2 py-1 text-xl font-bold">
           How it Works
