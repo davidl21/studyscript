@@ -1,8 +1,8 @@
 const About = () => {
   return (
-    <div className="relative mt-20">
+    <section className="relative mt-20">
       Hello
-    </div>
+    </section>
   )
 }
 

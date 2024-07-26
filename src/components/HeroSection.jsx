@@ -21,7 +21,7 @@ const HeroSection = () => {
     }, [currentWord, wordsInRotation, currentEmoji, emojisInRotation]);
 
   return (
-    <div className="flex flex-col items-center mt-6 lg:mt-20">
+    <section className="flex flex-col items-center mt-6 lg:mt-20">
       <h1 className="text-4xl sm:text-6xl lg:text-7xl text-center font-thin">
         Are you ready to learn
         
@@ -40,7 +40,7 @@ const HeroSection = () => {
             Try StudyScript
         </a>
       </div>
-    </div>
+    </section>
   )
 }
 
