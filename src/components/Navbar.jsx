@@ -18,10 +18,10 @@ const Navbar = () => {
             ))} 
           </ul>
           <div className="hidden lg:flex justify-center space-x-4 items-center">
-            <a href="#" className="py-2 px-3 border rounded-md hover:bg-neutral-700 transition-color duration-300">
+            <a href="#sign-in" className="py-2 px-3 border rounded-md hover:bg-neutral-700 transition-color duration-300">
               Sign In
             </a>
-            <a href="#" className="bg-gradient-to-r from-purple-500 to-purple-800 py-2 px-3 rounded-md">
+            <a href="#new-account" className="bg-gradient-to-r from-purple-500 to-purple-800 py-2 px-3 rounded-md">
               Create Account
             </a>
           </div>
