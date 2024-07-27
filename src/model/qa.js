@@ -1,1 +1,3 @@
-HUGGINGFACEHUB_API_KEY = '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'
+import * as dotenv from "dotenv";
+
+dotenv.config();
