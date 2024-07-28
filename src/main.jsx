@@ -15,6 +15,7 @@ const router = createBrowserRouter([
   {
     path: "/insert_url",
     element: <InsertPage />,
+    errorElement: <NotFoundPage />,
   },
 ]);
 
