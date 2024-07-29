@@ -14,6 +14,11 @@ const model = new ChatOpenAI({
   apiKey: "",
 });
 
+const embeddings = new OpenAIEmbeddings({
+  apiKey: "",
+  model: "text-embedding-3-small",
+});
+
 const history = new ChatMessageHistory();
 
 const prompt = PromptTemplate.fromTemplate(
