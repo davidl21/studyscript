@@ -1,11 +1,25 @@
 import { useEffect, useState } from "react";
 import { FaSearch } from "react-icons/fa";
 import { YoutubeTranscript } from "youtube-transcript";
+import { YoutubeLoader } from "@langchain/community/document_loaders/web/youtube";
 
 const getYoutubeTranscript = async (url) => {
+  //   try {
+  //     const response = await YoutubeTranscript.fetchTranscript(url);
+  //     console.log(response);
+  //   } catch (error) {
+  //     console.error("Error fetching transcript:", error);
+  //   }
   try {
-    const response = await YoutubeTranscript.fetchTranscript(url);
-    console.log(response);
+    const loader = YoutubeLoader.createFromUrl(
+      "https://www.youtube.com/watch?v=KSAPc5NwLYU",
+      {
+        language: "en",
+        addVideoInfo: true,
+      }
+    );
+    const docs = await loader.load();
+    console.log(docs);
   } catch (error) {
     console.error("Error fetching transcript:", error);
   }
