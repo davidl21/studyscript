@@ -15,15 +15,17 @@ import {
 import { StringOutputParser } from "@langchain/core/output_parsers";
 import { RecursiveCharacterTextSplitter } from "langchain/text_splitter";
 import { Document } from "langchain/document";
+import { bcrypt } from "bcrypt";
 
 // MongoDB Deployment
-const uri = "mongodb+srv://davidl21:ShX2jDrspIYuDMo1@cluster0.4qtdodj.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
+const uri =
+  "mongodb+srv://davidl21:ShX2jDrspIYuDMo1@cluster0.4qtdodj.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
 const client = new MongoClient(uri, {
   serverApi: {
-    version: ServerApiVersion.v1, 
+    version: ServerApiVersion.v1,
     strict: true,
     depcrecationErrors: true,
-  }
+  },
 });
 
 async function run() {
@@ -32,7 +34,9 @@ async function run() {
     await client.connect();
     // send a ping to confirm connection
     await client.db("admin").command({ ping: 1 });
-    console.log("Pinged your deployment. You successfully connected to MongoDB!");
+    console.log(
+      "Pinged your deployment. You successfully connected to MongoDB!"
+    );
   } finally {
     await client.close();
   }
@@ -44,12 +48,12 @@ const app = express();
 // Combine text chunks from youtube-transcript api - middleware
 const combineText = (req, res, next) => {
   res.combineText = (transcripts) => {
-    const combinedText = transcripts.map(chunk => chunk.text).join(' ');
+    const combinedText = transcripts.map((chunk) => chunk.text).join(" ");
     return combinedText;
   };
   next();
-}
-app.use('/get-transcript', combineText);
+};
+app.use("/get-transcript", combineText);
 
 // rate limiting
 const limiter = rateLimit({
@@ -66,7 +70,7 @@ app.use(
   })
 );
 
-
+// HTTP Requests
 app.get("/", (req, res) => {
   res.send("Successful response.");
 });
@@ -75,19 +79,48 @@ app.get("/qa", async (req, res) => {
   const query = req.query.message;
   if (message && typeof message === "string") {
     const response = await chain.invoke({
-      context: "some typa similarity search", 
-      question: ""
-    })
+      context: "some typa similarity search",
+      question: "",
+    });
   }
-})
+});
+
+app.post("/register", (req, res) => {
+  try {
+    // hash the password
+    bcrypt.hash(req.body.password, 10).then(async (hashedPassword) => {
+      // create new user instance and collect data
+      const user = {
+        user_id: req.body.user_id,
+        email: req.body.email,
+        password: hashedPassword,
+        docs: null,
+        transcript: null,
+      };
+
+      // insert data
+      await client.connect();
+      const myDatabase = client.db("studyscript");
+      const myCollection = myDatabase.collection("users");
+
+      const result = await myCollection.insertOne(user);
+    });
+    res.status(200).json({
+      message: "Successfully registered user in database!",
+    });
+  } catch (error) {
+    res.status(500).send("Error adding user to database.");
+  }
+});
 
 app.post("/get-transcript", async (req, res) => {
   try {
-    const apiRes = await YoutubeTranscript.fetchTranscript(
-      "https://www.youtube.com/watch?v=KSAPc5NwLYU"
-    );
+    const url = req.body.url;
+    const apiRes = await YoutubeTranscript.fetchTranscript(url);
     const combinedText = res.combineText(apiRes);
-    const textSplitter = new RecursiveCharacterTextSplitter({ chunkSize: 1000 });
+    const textSplitter = new RecursiveCharacterTextSplitter({
+      chunkSize: 1000,
+    });
     const docs = await textSplitter.createDocuments([combinedText]);
 
     // connect to mongodb
@@ -96,18 +129,18 @@ app.post("/get-transcript", async (req, res) => {
     const myCollection = myDatabase.collection("users");
 
     // put docs into mongodb database
-    const filter = { user_id:req.query.user_id };
+    const filter = { user_id: req.query.user_id };
     const updateDocument = {
       $set: {
-        docs: docs
-      }
+        docs: docs,
+      },
     };
     const result = await myCollection.updateOne(filter, updateDocument);
     res.status(200).json({
-      message: "Successfully put documents into user database."
-    })
+      message: "Successfully put documents into user database.",
+    });
   } catch (error) {
-    res.status(500).send('Error fetching transcript');
+    res.status(500).send("Error fetching transcript");
     console.log(error);
   }
 });
@@ -126,11 +159,8 @@ const ANSWER = async (query, user_id) => {
   });
 
   // FAISS store
-  const docs = "pull from user db."
-  const vectorStore = await FaissStore.fromDocuments(
-    docs,
-    embeddings
-  )
+  const docs = "pull from user db.";
+  const vectorStore = await FaissStore.fromDocuments(docs, embeddings);
   const retriever = vectorStore.asRetriever();
 
   const history = new ChatMessageHistory();
@@ -152,6 +182,6 @@ const ANSWER = async (query, user_id) => {
   );
 
   const chain = promptTemplate.pipe(model);
-}
+};
 
 app.listen(3000, () => console.log("App is listening on port 3000."));
