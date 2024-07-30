@@ -5,6 +5,8 @@ import "./index.css";
 import { createBrowserRouter, RouterProvider } from "react-router-dom";
 import InsertPage from "./pages/InsertPage";
 import NotFoundPage from "./pages/NotFoundPage";
+import Login from "./pages/Login";
+import Register from "./pages/Register";
 
 const router = createBrowserRouter([
   {
@@ -15,6 +17,16 @@ const router = createBrowserRouter([
   {
     path: "/insert_url",
     element: <InsertPage />,
+    errorElement: <NotFoundPage />,
+  },
+  {
+    path: "/login",
+    element: <Login />,
+    errorElement: <NotFoundPage />,
+  },
+  {
+    path: "/register",
+    element: <Register />,
     errorElement: <NotFoundPage />,
   },
 ]);
