@@ -15,7 +15,8 @@ import {
 import { StringOutputParser } from "@langchain/core/output_parsers";
 import { RecursiveCharacterTextSplitter } from "langchain/text_splitter";
 import { Document } from "langchain/document";
-import { bcrypt } from "bcrypt";
+import bcrypt from "bcrypt";
+import bodyParser from "body-parser";
 
 // MongoDB Deployment
 const uri =
@@ -64,6 +65,9 @@ const limiter = rateLimit({
 app.use(limiter);
 app.set("trust proxy", 1);
 
+app.use(bodyParser.json());
+app.use(bodyParser.urlencoded({ extended: true }));
+
 app.use(
   cors({
     origin: "http://localhost:5173",
@@ -88,34 +92,41 @@ app.get("/qa", async (req, res) => {
 app.post("/register", (req, res) => {
   try {
     // hash the password
-    bcrypt.hash(req.body.password, 10).then(async (hashedPassword) => {
+    bcrypt.hash(req.query.password, 10).then(async (hashedPassword) => {
       // create new user instance and collect data
       const user = {
-        user_id: req.body.user_id,
-        email: req.body.email,
+        user_id: req.query.user_id,
+        email: req.query.email,
         password: hashedPassword,
         docs: null,
         transcript: null,
       };
 
       // insert data
-      await client.connect();
-      const myDatabase = client.db("studyscript");
-      const myCollection = myDatabase.collection("users");
+      try {
+        await client.connect();
+        const myDatabase = client.db("studyscript");
+        const myCollection = myDatabase.collection("users");
 
-      const result = await myCollection.insertOne(user);
+        const result = await myCollection.insertOne(user);
+        console.log("Successfully connected to DB and inserted user.");
+      } catch (error) {
+        res.status(500).send("Error adding user to database.");
+        console.log(error);
+      }
     });
     res.status(200).json({
       message: "Successfully registered user in database!",
     });
   } catch (error) {
     res.status(500).send("Error adding user to database.");
+    console.log(error);
   }
 });
 
 app.post("/get-transcript", async (req, res) => {
   try {
-    const url = req.body.url;
+    const url = req.query.url;
     const apiRes = await YoutubeTranscript.fetchTranscript(url);
     const combinedText = res.combineText(apiRes);
     const textSplitter = new RecursiveCharacterTextSplitter({
