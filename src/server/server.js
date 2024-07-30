@@ -17,6 +17,7 @@ import { RecursiveCharacterTextSplitter } from "langchain/text_splitter";
 import { Document } from "langchain/document";
 import bcrypt from "bcrypt";
 import bodyParser from "body-parser";
+import jwt from "jsonwebtoken";
 
 // MongoDB Deployment
 const uri =
@@ -122,6 +123,32 @@ app.post("/register", (req, res) => {
     res.status(500).send("Error adding user to database.");
     console.log(error);
   }
+});
+
+app.post("/login", async (req, res) => {
+  await client.connect();
+  const myDatabase = client.db("studyscript");
+  const myCollection = myDatabase.collection("users");
+
+  // look for user in db
+  try {
+    const findResult = myCollection.find({
+      email: req.query.email,
+    });
+
+    const user_email = findResult;
+  } catch (error) {
+    res.status(404).send({
+      message: "Email not found",
+      error,
+    });
+  }
+
+  // retrieve password from db TODO
+
+  (user_email) => {
+    bcrypt.compare(req.query.password, user_);
+  };
 });
 
 app.post("/get-transcript", async (req, res) => {
