@@ -4,7 +4,7 @@ const BreakdownSection = () => {
   return (
     <section className="relative mt-40 min-h-[400px]">
       <div className="text-center">
-        <span className="text-neutral-700 h-6 text-sm px-2 py-1 text-xl font-bold">
+        <span className="text-neutral-700 h-6 text-sm px-2 py-1 font-bold">
           How it Works
         </span>
         <h2 className="mt-10 text-3xl sm:text-5xl lg:text-6xl font-thin">
@@ -36,4 +36,4 @@ const BreakdownSection = () => {
   );
 };
 
-export default BreakdownSection
+export default BreakdownSection;
