@@ -176,12 +176,16 @@ app.post("/login", async (req, res) => {
 app.post("/get-transcript", async (req, res) => {
   try {
     const url = req.query.url;
+
     const apiRes = await YoutubeTranscript.fetchTranscript(url);
     const combinedText = res.combineText(apiRes);
+
+    console.log(combinedText)
     const textSplitter = new RecursiveCharacterTextSplitter({
       chunkSize: 1000,
     });
     const docs = await textSplitter.createDocuments([combinedText]);
+    console.log(docs);
 
     // connect to mongodb
     await client.connect();
@@ -201,6 +205,23 @@ app.post("/get-transcript", async (req, res) => {
     });
   } catch (error) {
     res.status(500).send("Error fetching transcript");
+    console.log(error);
+  }
+});
+
+app.get("/qa", async (req, res) => {
+  try {
+    const question = req.query.question;
+    const user_id = req.query.user_id;
+    const chatbot_res = await ANSWER(question, user_id);
+
+    res.status(200).send(
+      {
+        ai_message: chatbot_res
+      }
+    )
+  } catch (error) {
+    res.status(500).send("Error generating chatbot answer");
     console.log(error);
   }
 });
