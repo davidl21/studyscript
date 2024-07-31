@@ -99,12 +99,12 @@ app.get("/find_user", async (req, res) => {
 
   if (found_user) {
     console.log("found registered user in database.");
-    res.status(400).json({
+    res.status(400).send({
       message: "Email already registered."
     })
   } else {
     console.log("User not found in database.")
-    res.status(200).json({
+    res.status(200).send({
       message: "Email not yet registered."
     })
   }
@@ -127,17 +127,10 @@ app.post("/register", async (req, res) => {
         transcript: null,
       };
 
-      // insert data
-      try {
-
-        const result = await myCollection.insertOne(user);
-        console.log("Successfully connected to DB and inserted user.");
-      } catch (error) {
-        res.status(500).send("Error adding user to database.");
-        console.log(error);
-      }
+      await myCollection.insertOne(user);
     });
-    res.status(200).json({
+
+    res.status(200).send({
       message: "Successfully registered user in database!",
     });
   } catch (error) {

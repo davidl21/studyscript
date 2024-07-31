@@ -23,6 +23,8 @@ const Register = () => {
   }
 
   const handleSubmit = async (e) => {
+    const response = await findUser(email);
+    console.log(response)
     try {
       const config = {
         method: "post",
