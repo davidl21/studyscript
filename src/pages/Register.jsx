@@ -8,7 +8,21 @@ const Register = () => {
   const [username, setUsername] = useState("");
   const [registered, setRegistered] = useState(false);
 
-  const handleSubmit = (e) => {
+  const findUser = async (email) => {
+    try {
+      console.log("hi")
+      const response = await axios.get("http://localhost:3000/register", {params:{
+        email: email
+      }})
+      console.log(response.data);
+      return (response.data);
+    } catch (error) {
+      console.log(error);
+      return (error);
+    }
+  }
+
+  const handleSubmit = async (e) => {
     try {
       const config = {
         method: "post",
@@ -19,10 +33,9 @@ const Register = () => {
           password: password
         }
       }
-
-      axios(config);
+      const registerResponse = await axios(config);
+      console.log("User registered:", registerResponse.data);
       setRegistered(true);
-      console.log("Successfully made API call and registered user.")
     } catch (error) {
       console.log("Issue making API call and registering user", error)
     }
