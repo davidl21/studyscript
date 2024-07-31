@@ -90,38 +90,49 @@ app.get("/qa", async (req, res) => {
   }
 });
 
-app.post("/register", (req, res) => {
-  try {
-    // hash the password
-    bcrypt.hash(req.query.password, 10).then(async (hashedPassword) => {
-      // create new user instance and collect data
-      const user = {
-        user_id: req.query.user_id,
-        email: req.query.email,
-        password: hashedPassword,
-        docs: null,
-        transcript: null,
-      };
+app.post("/register", async (req, res) => {
+  await client.connect();
+  const myDatabase = client.db("studyscript");
+  const myCollection = myDatabase.collection("users");
 
-      // insert data
-      try {
-        await client.connect();
-        const myDatabase = client.db("studyscript");
-        const myCollection = myDatabase.collection("users");
-
-        const result = await myCollection.insertOne(user);
-        console.log("Successfully connected to DB and inserted user.");
-      } catch (error) {
-        res.status(500).send("Error adding user to database.");
-        console.log(error);
-      }
-    });
-    res.status(200).json({
-      message: "Successfully registered user in database!",
-    });
-  } catch (error) {
-    res.status(500).send("Error adding user to database.");
-    console.log(error);
+  const found_user = await myCollection.findOne({email: req.query.email})
+  console.log(found_user)
+  if (found_user) {
+    console.log("hi")
+    res.status(400).json({
+      message:"Email already registered."
+    })
+    console.log("Email already registered.")
+  } else {
+    try {
+      // hash the password
+      bcrypt.hash(req.query.password, 10).then(async (hashedPassword) => {
+        // create new user instance and collect data
+        const user = {
+          user_id: req.query.user_id,
+          email: req.query.email,
+          password: hashedPassword,
+          docs: null,
+          transcript: null,
+        };
+  
+        // insert data
+        try {
+  
+          const result = await myCollection.insertOne(user);
+          console.log("Successfully connected to DB and inserted user.");
+        } catch (error) {
+          res.status(500).send("Error adding user to database.");
+          console.log(error);
+        }
+      });
+      res.status(200).json({
+        message: "Successfully registered user in database!",
+      });
+    } catch (error) {
+      res.status(500).send("Error adding user to database.");
+      console.log(error);
+    }
   }
 });
 
@@ -130,7 +141,7 @@ app.post("/login", async (req, res) => {
   const myDatabase = client.db("studyscript");
   const myCollection = myDatabase.collection("users");
 
-  myCollection
+  await myCollection
     .findOne({ email: req.query.email })
     .then((user) => {
       bcrypt
