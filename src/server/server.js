@@ -82,10 +82,27 @@ app.get("/", (req, res) => {
 
 app.get("/qa", async (req, res) => {
   const query = req.query.message;
-  if (message && typeof message === "string") {
-    const response = await chain.invoke({
-      context: "some typa similarity search",
-      question: "",
+  if (query && typeof query === "string") {
+    try {
+      const response = await chain.invoke({
+        context: "some typa similarity search",
+        question: query,
+      });
+      res.json({
+        success: true,
+        data: response,
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        message: "Error processing request.",
+      });
+    }
+  } else {
+    res.status(400).json({
+      success: false,
+      message:
+        "Invalid input. Please provide a non-empty string as the message.",
     });
   }
 });
@@ -95,20 +112,20 @@ app.get("/find_user", async (req, res) => {
   const myDatabase = client.db("studyscript");
   const myCollection = myDatabase.collection("users");
 
-  const found_user = await myCollection.findOne({email: req.query.email});
+  const found_user = await myCollection.findOne({ email: req.query.email });
 
   if (found_user) {
     console.log("found registered user in database.");
     res.status(400).send({
-      message: "Email already registered."
-    })
+      message: "Email already registered.",
+    });
   } else {
-    console.log("User not found in database.")
+    console.log("User not found in database.");
     res.status(200).send({
-      message: "Email not yet registered."
-    })
+      message: "Email not yet registered.",
+    });
   }
-})
+});
 
 app.post("/register", async (req, res) => {
   await client.connect();
@@ -194,7 +211,7 @@ app.post("/get-transcript", async (req, res) => {
     const apiRes = await YoutubeTranscript.fetchTranscript(url);
     const combinedText = res.combineText(apiRes);
 
-    console.log(combinedText)
+    console.log(combinedText);
     const textSplitter = new RecursiveCharacterTextSplitter({
       chunkSize: 1000,
     });
@@ -229,11 +246,9 @@ app.get("/qa", async (req, res) => {
     const user_id = req.query.user_id;
     const chatbot_res = await ANSWER(question, user_id);
 
-    res.status(200).send(
-      {
-        ai_message: chatbot_res
-      }
-    )
+    res.status(200).send({
+      ai_message: chatbot_res,
+    });
   } catch (error) {
     res.status(500).send("Error generating chatbot answer");
     console.log(error);
