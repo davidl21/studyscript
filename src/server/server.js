@@ -153,21 +153,29 @@ const getChatHistory = async (user_id) => {
   return history;
 };
 
+const model = new ChatOpenAI({
+  model: "gpt-4o-mini",
+  temperature: 0.9,
+  apiKey: "",
+});
+
+const embeddings = new OpenAIEmbeddings({
+  apiKey: "",
+  model: "text-embedding-3-small",
+});
+
 // langchain rag qa model
 const ANSWER = async (query, user_id) => {
-  const model = new ChatOpenAI({
-    model: "gpt-4o-mini",
-    temperature: 0.9,
-    apiKey: "",
-  });
+  // connect to mongodb
+  await client.connect();
+  const myDatabase = client.db("studyscript");
+  const myCollection = myDatabase.collection("users");
 
-  const embeddings = new OpenAIEmbeddings({
-    apiKey: "",
-    model: "text-embedding-3-small",
-  });
+  // fetch docs from database
+  const user = await myCollection.findOne({ user_id: user_id });
+  const docs = user.docs;
 
-  // FAISS store
-  const docs = "pull from user db.";
+  // create vector store
   const vectorStore = await FaissStore.fromDocuments(docs, embeddings);
   const retriever = vectorStore.asRetriever();
   const history = await getChatHistory(user_id);
