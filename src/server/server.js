@@ -80,33 +80,6 @@ app.get("/", (req, res) => {
   res.send("Successful response.");
 });
 
-app.get("/qa", async (req, res) => {
-  const query = req.query.message;
-  if (query && typeof query === "string") {
-    try {
-      const response = await chain.invoke({
-        context: "some typa similarity search",
-        question: query,
-      });
-      res.json({
-        success: true,
-        data: response,
-      });
-    } catch (error) {
-      res.status(500).json({
-        success: false,
-        message: "Error processing request.",
-      });
-    }
-  } else {
-    res.status(400).json({
-      success: false,
-      message:
-        "Invalid input. Please provide a non-empty string as the message.",
-    });
-  }
-});
-
 app.post("/get-transcript", async (req, res) => {
   try {
     const url = req.query.url;
@@ -114,12 +87,12 @@ app.post("/get-transcript", async (req, res) => {
     const apiRes = await YoutubeTranscript.fetchTranscript(url);
     const combinedText = res.combineText(apiRes);
 
-    console.log(combinedText);
+    //console.log(combinedText);
     const textSplitter = new RecursiveCharacterTextSplitter({
       chunkSize: 1000,
     });
     const docs = await textSplitter.createDocuments([combinedText]);
-    console.log(docs);
+    //console.log(docs);
 
     // connect to mongodb
     await client.connect();
@@ -133,7 +106,7 @@ app.post("/get-transcript", async (req, res) => {
         docs: docs,
       },
     };
-    const result = await myCollection.updateOne(filter, updateDocument);
+    await myCollection.updateOne(filter, updateDocument);
     res.status(200).json({
       message: "Successfully put documents into user database.",
     });
@@ -144,19 +117,41 @@ app.post("/get-transcript", async (req, res) => {
 });
 
 app.get("/qa", async (req, res) => {
-  try {
-    const question = req.query.question;
-    const user_id = req.query.user_id;
-    const chatbot_res = await ANSWER(question, user_id);
+  const question = req.query.question;
+  const user_id = req.query.user_id;
+  if (!question || typeof question !== "string" || question.trim() === "") {
+    try {
+      const chatbot_res = await ANSWER(question, user_id);
 
-    res.status(200).send({
-      ai_message: chatbot_res,
+      res.status(200).send({
+        ai_message: chatbot_res,
+      });
+    } catch (error) {
+      res.status(500).send("Error generating chatbot answer");
+      console.log(error);
+    }
+  } else {
+    res.status(400).json({
+      success: false,
+      message: "Invalid input.",
     });
-  } catch (error) {
-    res.status(500).send("Error generating chatbot answer");
-    console.log(error);
   }
 });
+
+const getChatHistory = async (user_id) => {
+  // only create a new chathistory if the user is not in the database yet.
+  const user = await userCollection.findOne({ user_id: user_id });
+  let history;
+  if (user && user.chatHistory) {
+    history = new ChatMessageHistory(user.chatHistory);
+  } else {
+    history = new ChatMessageHistory();
+
+    await userCollection.insertOne({ user_id: user_id, chatHistory: history });
+  }
+
+  return history;
+};
 
 // langchain rag qa model
 const ANSWER = async (query, user_id) => {
@@ -175,8 +170,7 @@ const ANSWER = async (query, user_id) => {
   const docs = "pull from user db.";
   const vectorStore = await FaissStore.fromDocuments(docs, embeddings);
   const retriever = vectorStore.asRetriever();
-
-  const history = new ChatMessageHistory();
+  const history = await getChatHistory(user_id);
 
   const promptTemplate = PromptTemplate.fromTemplate(
     `You are a friendly AI chatbot built to help students learn and answer questions regarding their lecture material. 
