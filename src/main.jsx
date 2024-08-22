@@ -7,6 +7,7 @@ import InsertPage from "./pages/InsertPage";
 import NotFoundPage from "./pages/NotFoundPage";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
+import HowItWorksPage from "./pages/HowItWorksPage.jsx";
 
 const router = createBrowserRouter([
   {
@@ -27,6 +28,11 @@ const router = createBrowserRouter([
   {
     path: "/register",
     element: <Register />,
+    errorElement: <NotFoundPage />,
+  },
+  {
+    path: "/breakdown",
+    element: <HowItWorksPage />,
     errorElement: <NotFoundPage />,
   },
 ]);
