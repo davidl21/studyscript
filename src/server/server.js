@@ -7,7 +7,13 @@ import { MongoClient, ServerApiVersion } from "mongodb";
 import { ChatOpenAI, OpenAIEmbeddings } from "@langchain/openai";
 import { PromptTemplate } from "@langchain/core/prompts";
 import { ChatMessageHistory } from "langchain/stores/message/in_memory";
+import { BufferMemory } from "langchain/memory";
 import { FaissStore } from "@langchain/community/vectorstores/faiss";
+import {
+  ConversationChain,
+  ConversationalRetrievalQAChain,
+} from "langchain/chains";
+import { createStuffDocumentsChain } from "langchain/chains/combine_documents";
 import {
   RunnableSequence,
   RunnablePassthrough,
@@ -15,9 +21,7 @@ import {
 import { StringOutputParser } from "@langchain/core/output_parsers";
 import { RecursiveCharacterTextSplitter } from "langchain/text_splitter";
 import { Document } from "langchain/document";
-import bcrypt from "bcrypt";
 import bodyParser from "body-parser";
-import jwt from "jsonwebtoken";
 
 // MongoDB Deployment
 const uri =
@@ -82,17 +86,18 @@ app.get("/", (req, res) => {
 
 app.post("/get-transcript", async (req, res) => {
   try {
+    console.log("test");
     const url = req.query.url;
 
     const apiRes = await YoutubeTranscript.fetchTranscript(url);
     const combinedText = res.combineText(apiRes);
 
-    //console.log(combinedText);
+    console.log(combinedText);
     const textSplitter = new RecursiveCharacterTextSplitter({
       chunkSize: 1000,
     });
     const docs = await textSplitter.createDocuments([combinedText]);
-    //console.log(docs);
+    console.log(docs);
 
     // connect to mongodb
     await client.connect();
@@ -119,7 +124,7 @@ app.post("/get-transcript", async (req, res) => {
 app.get("/qa", async (req, res) => {
   const question = req.query.question;
   const user_id = req.query.user_id;
-  if (!question || typeof question !== "string" || question.trim() === "") {
+  if (question) {
     try {
       const chatbot_res = await ANSWER(question, user_id);
 
@@ -139,21 +144,24 @@ app.get("/qa", async (req, res) => {
 });
 
 const getChatHistory = async (user_id) => {
+  await client.connect();
+  const myDatabase = client.db("studyscript");
+  const myCollection = myDatabase.collection("users");
   // only create a new chathistory if the user is not in the database yet.
-  const user = await userCollection.findOne({ user_id: user_id });
+  const user = await myCollection.findOne({ user_id: user_id });
   let history;
   if (user && user.chatHistory) {
-    history = new ChatMessageHistory(user.chatHistory);
+    history = ChatMessageHistory(user.chatHistory);
   } else {
-    history = new ChatMessageHistory();
+    history = ChatMessageHistory();
 
-    await userCollection.insertOne({ user_id: user_id, chatHistory: history });
+    await myCollection.insertOne({ user_id: user_id, chatHistory: history });
   }
 
   return history;
 };
 
-const model = new ChatOpenAI({
+const llm = new ChatOpenAI({
   model: "gpt-4o-mini",
   temperature: 0.9,
   apiKey: "",
@@ -166,7 +174,6 @@ const embeddings = new OpenAIEmbeddings({
 
 // langchain rag qa model
 const ANSWER = async (query, user_id) => {
-  // connect to mongodb
   await client.connect();
   const myDatabase = client.db("studyscript");
   const myCollection = myDatabase.collection("users");
@@ -178,9 +185,8 @@ const ANSWER = async (query, user_id) => {
   // create vector store
   const vectorStore = await FaissStore.fromDocuments(docs, embeddings);
   const retriever = vectorStore.asRetriever();
-  const history = await getChatHistory(user_id);
 
-  const promptTemplate = PromptTemplate.fromTemplate(
+  const prompt = PromptTemplate.fromTemplate(
     `You are a friendly AI chatbot built to help students learn and answer questions regarding their lecture material. 
 
     Based on the context given you, only answer questions about the context or that is related to the context. 
@@ -196,7 +202,23 @@ const ANSWER = async (query, user_id) => {
       `
   );
 
-  const chain = promptTemplate.pipe(model);
+  const chain = await createStuffDocumentsChain({
+    llm,
+    prompt,
+    outputParser: new StringOutputParser(),
+  });
+
+  try {
+    const response = await chain.invoke({
+      context: retriever.invoke(query),
+      question: query,
+    });
+
+    return response;
+  } catch (error) {
+    console.error("Error in ANSWER function", error);
+    throw new Error("Failed to generate an answer");
+  }
 };
 
 app.listen(3000, () => console.log("App is listening on port 3000."));
