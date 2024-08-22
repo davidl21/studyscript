@@ -143,17 +143,33 @@ app.get("/qa", async (req, res) => {
   }
 });
 
+const APIKEY = "";
+
+const llm = new ChatOpenAI({
+  model: "gpt-4o-mini",
+  temperature: 0.9,
+  apiKey: APIKEY,
+});
+
+const embeddings = new OpenAIEmbeddings({
+  apiKey: APIKEY,
+  model: "text-embedding-3-small",
+});
+
 const getChatHistory = async (user_id) => {
   await client.connect();
   const myDatabase = client.db("studyscript");
   const myCollection = myDatabase.collection("users");
   // only create a new chathistory if the user is not in the database yet.
   const user = await myCollection.findOne({ user_id: user_id });
+
   let history;
   if (user && user.chatHistory) {
-    history = ChatMessageHistory(user.chatHistory);
+    console.log("User history exists in database.");
+    history = user.chatHistory;
   } else {
-    history = ChatMessageHistory();
+    console.log("User history does not exist in database.");
+    history = [];
 
     await myCollection.insertOne({ user_id: user_id, chatHistory: history });
   }
@@ -161,16 +177,23 @@ const getChatHistory = async (user_id) => {
   return history;
 };
 
-const llm = new ChatOpenAI({
-  model: "gpt-4o-mini",
-  temperature: 0.9,
-  apiKey: "",
-});
+const updateChatHistory = async (chatHistory, user_id) => {
+  await client.connect();
+  const myDatabase = client.db("studyscript");
+  const myCollection = myDatabase.collection("users");
 
-const embeddings = new OpenAIEmbeddings({
-  apiKey: "",
-  model: "text-embedding-3-small",
-});
+  try {
+    await myCollection.updateOne(
+      { user_id: user_id },
+      { $set: { chatHistory: chatHistory } }
+    );
+
+    console.log("Successfully updated chat history.");
+  } catch (error) {
+    console.error("Failed to update chat history:", error);
+    throw error;
+  }
+};
 
 // langchain rag qa model
 const ANSWER = async (query, user_id) => {
@@ -193,6 +216,9 @@ const ANSWER = async (query, user_id) => {
 
     Do not hold conversations about topics or subjects unrelated to the context.
 
+    Use the following chat history if it helps you answer the user's questions:
+    chat history: {chat_history}
+
     Have a friendly yet professional tone, like that of a tutor. 
     
       Answer the question based only on the following context:
@@ -202,6 +228,8 @@ const ANSWER = async (query, user_id) => {
       `
   );
 
+  let history = await getChatHistory(user_id);
+
   const chain = await createStuffDocumentsChain({
     llm,
     prompt,
@@ -210,9 +238,15 @@ const ANSWER = async (query, user_id) => {
 
   try {
     const response = await chain.invoke({
+      chat_history: history,
       context: retriever.invoke(query),
       question: query,
     });
+
+    // update chat history and add chat history to database
+    history = history.concat(response);
+    console.log(history);
+    await updateChatHistory(history, user_id);
 
     return response;
   } catch (error) {
