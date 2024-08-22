@@ -1,9 +1,7 @@
 import express from "express";
 import cors from "cors";
-import needle from "needle";
 import { YoutubeTranscript } from "youtube-transcript";
 import rateLimit from "express-rate-limit";
-import { MongoClient, ServerApiVersion } from "mongodb";
 import { ChatOpenAI, OpenAIEmbeddings } from "@langchain/openai";
 import { PromptTemplate } from "@langchain/core/prompts";
 import { ChatMessageHistory } from "langchain/stores/message/in_memory";
@@ -22,32 +20,28 @@ import { StringOutputParser } from "@langchain/core/output_parsers";
 import { RecursiveCharacterTextSplitter } from "langchain/text_splitter";
 import { Document } from "langchain/document";
 import bodyParser from "body-parser";
+import mongoose from "mongoose";
+import User from "../../src/models/User.js";
+import crypto from "crypto";
 
 // MongoDB Deployment
 const uri =
   "mongodb+srv://davidl21:ShX2jDrspIYuDMo1@cluster0.4qtdodj.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
-const client = new MongoClient(uri, {
-  serverApi: {
-    version: ServerApiVersion.v1,
-    strict: true,
-    depcrecationErrors: true,
-  },
-});
 
-async function run() {
+const clientOptions = {
+  serverApi: { version: "1", strict: true, deprecationErrors: true },
+};
+
+async function startServer() {
   try {
-    // connect the client to the server
-    await client.connect();
-    // send a ping to confirm connection
-    await client.db("admin").command({ ping: 1 });
-    console.log(
-      "Pinged your deployment. You successfully connected to MongoDB!"
-    );
-  } finally {
-    await client.close();
+    await mongoose.connect(uri, clientOptions);
+    console.log("Connected to MongoDB");
+    // Start the server and perform any initial setup
+  } catch (error) {
+    console.error("Error connecting to MongoDB:", error);
   }
 }
-run().catch(console.dir);
+startServer();
 
 const app = express();
 
@@ -84,6 +78,23 @@ app.get("/", (req, res) => {
   res.send("Successful response.");
 });
 
+app.post("/login", async (req, res) => {
+  const { username } = req.body;
+
+  try {
+    let user = await User.findOne({ username });
+
+    if (!user) {
+      // if the user doesn't exist create a new user
+    }
+  } catch (error) {
+    res.status(500).json({
+      message: "Error logging in",
+      error,
+    });
+  }
+});
+
 app.post("/get-transcript", async (req, res) => {
   try {
     console.log("test");
@@ -99,19 +110,13 @@ app.post("/get-transcript", async (req, res) => {
     const docs = await textSplitter.createDocuments([combinedText]);
     console.log(docs);
 
-    // connect to mongodb
-    await client.connect();
-    const myDatabase = client.db("studyscript");
-    const myCollection = myDatabase.collection("users");
+    const user_id = req.query.user_id;
+    const user = await User.findOneAndUpdate(
+      { user_id },
+      { $set: { docs } },
+      { new: true, upsert: true }
+    );
 
-    // put docs into mongodb database
-    const filter = { user_id: req.query.user_id };
-    const updateDocument = {
-      $set: {
-        docs: docs,
-      },
-    };
-    await myCollection.updateOne(filter, updateDocument);
     res.status(200).json({
       message: "Successfully put documents into user database.",
     });
@@ -157,37 +162,22 @@ const embeddings = new OpenAIEmbeddings({
 });
 
 const getChatHistory = async (user_id) => {
-  await client.connect();
-  const myDatabase = client.db("studyscript");
-  const myCollection = myDatabase.collection("users");
-  // only create a new chathistory if the user is not in the database yet.
-  const user = await myCollection.findOne({ user_id: user_id });
+  const user = await User.findOne({ user_id });
 
-  let history;
-  if (user && user.chatHistory) {
-    console.log("User history exists in database.");
-    history = user.chatHistory;
+  if (user) {
+    return user.chatHistory;
   } else {
-    console.log("User history does not exist in database.");
-    history = [];
-
-    await myCollection.insertOne({ user_id: user_id, chatHistory: history });
+    return [];
   }
-
-  return history;
 };
 
 const updateChatHistory = async (chatHistory, user_id) => {
-  await client.connect();
-  const myDatabase = client.db("studyscript");
-  const myCollection = myDatabase.collection("users");
-
   try {
-    await myCollection.updateOne(
-      { user_id: user_id },
-      { $set: { chatHistory: chatHistory } }
+    await User.findOneAndUpdate(
+      { user_id },
+      { $set: { chatHistory } },
+      { new: true, upsert: true }
     );
-
     console.log("Successfully updated chat history.");
   } catch (error) {
     console.error("Failed to update chat history:", error);
@@ -202,8 +192,8 @@ const ANSWER = async (query, user_id) => {
   const myCollection = myDatabase.collection("users");
 
   // fetch docs from database
-  const user = await myCollection.findOne({ user_id: user_id });
-  const docs = user.docs;
+  const user = await User.findOne({ user_id });
+  const docs = user?.docs || [];
 
   // create vector store
   const vectorStore = await FaissStore.fromDocuments(docs, embeddings);
