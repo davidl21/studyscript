@@ -2,9 +2,23 @@ import { useEffect, useState } from "react";
 import { FaSearch } from "react-icons/fa";
 import { YoutubeTranscript } from "youtube-transcript";
 import { YoutubeLoader } from "@langchain/community/document_loaders/web/youtube";
+import axios from "axios";
 
 const SearchBar = () => {
   const [inputValue, setInputValue] = useState("");
+
+  const onClickHandler = async () => {
+    try {
+      const response = await axios.post("/get-transcript", {
+        url: inputValue,
+        user_id: userId,
+      });
+
+      console.log("Backend response:", response.data);
+    } catch (error) {
+      console.error("Error:", error);
+    }
+  };
 
   return (
     <form
