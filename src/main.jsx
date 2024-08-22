@@ -9,6 +9,7 @@ import Login from "./pages/Login";
 import Register from "./pages/Register";
 import HowItWorksPage from "./pages/HowItWorksPage.jsx";
 import AboutPage from "./pages/AboutPage.jsx";
+import ContactPage from "./pages/ContactPage.jsx";
 
 const router = createBrowserRouter([
   {
@@ -39,6 +40,11 @@ const router = createBrowserRouter([
   {
     path: "/about",
     element: <AboutPage />,
+    errorElement: <NotFoundPage />,
+  },
+  {
+    path: "/contact",
+    element: <ContactPage />,
     errorElement: <NotFoundPage />,
   },
 ]);
