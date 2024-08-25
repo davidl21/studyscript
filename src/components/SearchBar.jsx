@@ -14,7 +14,8 @@ const SearchBar = () => {
         "http://localhost:3000/get-transcript",
         {
           url: inputValue,
-        }
+        },
+        { withCredentials: true }
       );
       console.log("Backend response:", response.data);
     } catch (error) {

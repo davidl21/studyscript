@@ -14,7 +14,7 @@ import bodyParser from "body-parser";
 import mongoose from "mongoose";
 import User from "../../src/models/User.js";
 import session from "express-session";
-import MongoStore from "connect-mongo";
+// import MongoStore from "connect-mongo";
 
 // MongoDB Deployment
 const uri =
@@ -37,23 +37,22 @@ startServer();
 
 const app = express();
 
+const store = new session.MemoryStore();
+
 // session config
 app.use(
   session({
-    secret: "insert secret key",
+    secret: "thisismysecretkey",
     resave: false,
     saveUninitialized: false,
-    store: MongoStore.create({
-      mongoUrl: uri,
-      mongooseConnection: mongoose.connection,
-    }),
+    store: store,
     cookie: { maxAge: 1000 * 60 * 60 * 24 },
   })
 );
 
 // middleware to check if user is logged in
 const isLoggedIn = (req, res, next) => {
-  if (req.session.user_id) {
+  if (req.session.user) {
     next();
   } else {
     res.status(401).json({
@@ -87,16 +86,18 @@ app.use(bodyParser.urlencoded({ extended: true }));
 app.use(
   cors({
     origin: "http://localhost:5173",
+    credentials: true,
   })
 );
 
 // HTTP Requests
 app.get("/", (req, res) => {
+  console.log(req.session);
   res.send("Successful response.");
 });
 
 app.post("/login", async (req, res) => {
-  const { username } = req.body;
+  const username = req.query.username;
   console.log(username);
   try {
     let user = await User.findOne({ user_id: username });
@@ -104,7 +105,14 @@ app.post("/login", async (req, res) => {
     console.log("Heyyy");
     if (!user) {
       // if the user doesn't exist create a new user
-      user = new User({ user_id: username, docs: [], chatHistory: [] });
+      user = new User({
+        user_id: username,
+        docs: [],
+        chatHistory: [],
+        video_id: "",
+      });
+
+      console.log("yoo222");
 
       try {
         await user.save(); // Save the new user to the database
@@ -117,10 +125,13 @@ app.post("/login", async (req, res) => {
       }
     }
     console.log("heyyysdd");
-    req.session.user_id = user.user_id;
+    req.session.authenticated = true;
+    req.session.user = username;
+    console.log("Session user_id: ", req.session.user);
     console.log("yooo");
     res.status(200).json({
       message: "Login successul",
+      session: req.session,
     });
   } catch (error) {
     res.status(500).json({
@@ -131,9 +142,11 @@ app.post("/login", async (req, res) => {
 });
 
 app.post("/get-transcript", async (req, res) => {
+  console.log(req.session);
+  console.log(req.session.user);
   try {
     console.log("test");
-    const url = req.body.url;
+    const url = req.query.url;
 
     if (!url) {
       return res.status(400).json({
@@ -144,17 +157,28 @@ app.post("/get-transcript", async (req, res) => {
     const apiRes = await YoutubeTranscript.fetchTranscript(url);
     const combinedText = res.combineText(apiRes);
 
-    console.log(combinedText);
     const textSplitter = new RecursiveCharacterTextSplitter({
       chunkSize: 1000,
     });
     const docs = await textSplitter.createDocuments([combinedText]);
-    console.log(docs);
 
-    const user_id = req.session.user_id;
+    const user_id = req.session.user;
+    console.log("User_id:", user_id);
     await User.findOneAndUpdate(
       { user_id },
       { $set: { docs } },
+      { new: true, upsert: true }
+    );
+
+    // should also add in a video id attribute
+    const getYouTubeVideoId = (url) => {
+      const urlObj = new URL(url);
+      return urlObj.searchParams.get("v");
+    };
+    const video_id = getYouTubeVideoId(url);
+    await User.findOneAndUpdate(
+      { user_id },
+      { $set: { video_id } },
       { new: true, upsert: true }
     );
 
