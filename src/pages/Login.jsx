@@ -11,7 +11,9 @@ const Login = () => {
     e.preventDefault();
 
     try {
-      const response = await axios.post("/login", { username });
+      const response = await axios.post("http://localhost:3000/login", {
+        username,
+      });
 
       if (response.status === 200) {
         sessionStorage.setItem("user_id", response.data.user_id);
@@ -32,7 +34,7 @@ const Login = () => {
         <h1 className="mt-20 text-4xl sm:text-6xl lg:text-7xl text-center font-thin">
           Login to StudyScript!
         </h1>
-        <form className="className=w-[750px] relative">
+        <form onSubmit={handleLogin} className="className=w-[750px] relative">
           <div className="flex flex-col items-center mt-10 relative">
             <input
               type="text"

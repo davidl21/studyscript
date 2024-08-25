@@ -18,7 +18,7 @@ import MongoStore from "connect-mongo";
 
 // MongoDB Deployment
 const uri =
-  "mongodb+srv://davidl21:ShX2jDrspIYuDMo1@cluster0.4qtdodj.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
+  "mongodb+srv://davidl21:ShX2jDrspIYuDMo1@cluster0.4qtdodj.mongodb.net/studyscript?retryWrites=true&w=majority&appName=Cluster0";
 
 const clientOptions = {
   serverApi: { version: "1", strict: true, deprecationErrors: true },
@@ -97,18 +97,29 @@ app.get("/", (req, res) => {
 
 app.post("/login", async (req, res) => {
   const { username } = req.body;
-
+  console.log(username);
   try {
-    let user = await User.findOne({ username });
+    let user = await User.findOne({ user_id: username });
 
+    console.log("Heyyy");
     if (!user) {
       // if the user doesn't exist create a new user
-      user = new User({ user_id, docs: [], chatHistory: [] });
-      await user.save();
-    }
+      user = new User({ user_id: username, docs: [], chatHistory: [] });
 
+      try {
+        await user.save(); // Save the new user to the database
+      } catch (saveError) {
+        console.error("Error saving user:", saveError);
+        return res.status(500).json({
+          message: "Error creating user",
+          error: saveError.message,
+        });
+      }
+    }
+    console.log("heyyysdd");
     req.session.user_id = user.user_id;
-    req.status(200).json({
+    console.log("yooo");
+    res.status(200).json({
       message: "Login successul",
     });
   } catch (error) {
@@ -122,7 +133,13 @@ app.post("/login", async (req, res) => {
 app.post("/get-transcript", async (req, res) => {
   try {
     console.log("test");
-    const url = req.query.url;
+    const url = req.body.url;
+
+    if (!url) {
+      return res.status(400).json({
+        message: "URL is required",
+      });
+    }
 
     const apiRes = await YoutubeTranscript.fetchTranscript(url);
     const combinedText = res.combineText(apiRes);
@@ -134,8 +151,8 @@ app.post("/get-transcript", async (req, res) => {
     const docs = await textSplitter.createDocuments([combinedText]);
     console.log(docs);
 
-    const user_id = req.query.user_id;
-    const user = await User.findOneAndUpdate(
+    const user_id = req.session.user_id;
+    await User.findOneAndUpdate(
       { user_id },
       { $set: { docs } },
       { new: true, upsert: true }

@@ -9,11 +9,13 @@ const SearchBar = () => {
 
   const onClickHandler = async () => {
     try {
-      const response = await axios.post("/get-transcript", {
-        url: inputValue,
-        user_id: userId,
-      });
-
+      console.log("test1");
+      const response = await axios.post(
+        "http://localhost:3000/get-transcript",
+        {
+          url: inputValue,
+        }
+      );
       console.log("Backend response:", response.data);
     } catch (error) {
       console.error("Error:", error);
