@@ -11,6 +11,7 @@ import HowItWorksPage from "./pages/HowItWorksPage.jsx";
 import AboutPage from "./pages/AboutPage.jsx";
 import ContactPage from "./pages/ContactPage.jsx";
 import TranscriptPage from "./pages/TranscriptPage.jsx";
+import ProtectedRoute from "./components/ProtectedRoute.jsx";
 
 const router = createBrowserRouter([
   {
@@ -50,7 +51,7 @@ const router = createBrowserRouter([
   },
   {
     path: "/search",
-    element: <TranscriptPage />,
+    element: <ProtectedRoute element={<TranscriptPage />} />,
     errorElement: <NotFoundPage />,
   },
 ]);

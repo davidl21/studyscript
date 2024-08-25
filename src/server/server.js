@@ -7,22 +7,14 @@ import { PromptTemplate } from "@langchain/core/prompts";
 import { ChatMessageHistory } from "langchain/stores/message/in_memory";
 import { BufferMemory } from "langchain/memory";
 import { FaissStore } from "@langchain/community/vectorstores/faiss";
-import {
-  ConversationChain,
-  ConversationalRetrievalQAChain,
-} from "langchain/chains";
 import { createStuffDocumentsChain } from "langchain/chains/combine_documents";
-import {
-  RunnableSequence,
-  RunnablePassthrough,
-} from "@langchain/core/runnables";
 import { StringOutputParser } from "@langchain/core/output_parsers";
 import { RecursiveCharacterTextSplitter } from "langchain/text_splitter";
-import { Document } from "langchain/document";
 import bodyParser from "body-parser";
 import mongoose from "mongoose";
 import User from "../../src/models/User.js";
-import crypto from "crypto";
+import session from "express-session";
+import MongoStore from "connect-mongo";
 
 // MongoDB Deployment
 const uri =
@@ -44,6 +36,31 @@ async function startServer() {
 startServer();
 
 const app = express();
+
+// session config
+app.use(
+  session({
+    secret: "insert secret key",
+    resave: false,
+    saveUninitialized: false,
+    store: MongoStore.create({
+      mongoUrl: uri,
+      mongooseConnection: mongoose.connection,
+    }),
+    cookie: { maxAge: 1000 * 60 * 60 * 24 },
+  })
+);
+
+// middleware to check if user is logged in
+const isLoggedIn = (req, res, next) => {
+  if (req.session.user_id) {
+    next();
+  } else {
+    res.status(401).json({
+      message: "Unauthorized. User must log in first.",
+    });
+  }
+};
 
 // Combine text chunks from youtube-transcript api - middleware
 const combineText = (req, res, next) => {
@@ -86,7 +103,14 @@ app.post("/login", async (req, res) => {
 
     if (!user) {
       // if the user doesn't exist create a new user
+      user = new User({ user_id, docs: [], chatHistory: [] });
+      await user.save();
     }
+
+    req.session.user_id = user.user_id;
+    req.status(200).json({
+      message: "Login successul",
+    });
   } catch (error) {
     res.status(500).json({
       message: "Error logging in",
@@ -126,9 +150,9 @@ app.post("/get-transcript", async (req, res) => {
   }
 });
 
-app.get("/qa", async (req, res) => {
+app.get("/qa", isLoggedIn, async (req, res) => {
   const question = req.query.question;
-  const user_id = req.query.user_id;
+  const user_id = req.session.user_id;
   if (question) {
     try {
       const chatbot_res = await ANSWER(question, user_id);
@@ -162,7 +186,7 @@ const embeddings = new OpenAIEmbeddings({
 });
 
 const getChatHistory = async (user_id) => {
-  const user = await User.findOne({ user_id });
+  const user = await User.findOne({ user_id: user_id });
 
   if (user) {
     return user.chatHistory;
