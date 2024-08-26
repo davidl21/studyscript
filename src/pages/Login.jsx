@@ -3,6 +3,8 @@ import Navbar from "../components/Navbar";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 
+axios.defaults.withCredentials = true;
+
 const Login = () => {
   const [username, setUsername] = useState("");
   const navigate = useNavigate();
@@ -11,12 +13,18 @@ const Login = () => {
     e.preventDefault();
 
     try {
-      const response = await axios.post("http://localhost:3000/login", {
-        username: username,
-      });
+      const response = await axios.post(
+        "http://localhost:3000/login",
+        {
+          username: username,
+        },
+        { withCredentials: true }
+      );
 
+      console.log("res data1:", response.data);
+      console.log("res data:", response.data.user_id);
       if (response.status === 200) {
-        sessionStorage.setItem("user_id", response.data.user_id);
+        sessionStorage.setItem("user", response.data.user_id);
 
         navigate("/search");
       } else {

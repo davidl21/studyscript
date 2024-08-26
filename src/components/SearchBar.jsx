@@ -7,6 +7,11 @@ import axios from "axios";
 const SearchBar = () => {
   const [inputValue, setInputValue] = useState("");
 
+  try {
+    console.log("YOOOO: ", sessionStorage.getItem(user_id));
+  } catch (error) {
+    console.log("ERRORRRRRR", error);
+  }
   const onClickHandler = async () => {
     try {
       console.log("test1");

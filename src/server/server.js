@@ -14,7 +14,7 @@ import bodyParser from "body-parser";
 import mongoose from "mongoose";
 import User from "../../src/models/User.js";
 import session from "express-session";
-// import MongoStore from "connect-mongo";
+import MongoStore from "connect-mongo";
 
 // MongoDB Deployment
 const uri =
@@ -37,16 +37,29 @@ startServer();
 
 const app = express();
 
-const store = new session.MemoryStore();
-
+app.use(
+  cors({
+    origin: "http://localhost:5173",
+    credentials: true,
+  })
+);
+app.set("trust proxy", 1);
 // session config
 app.use(
   session({
     secret: "thisismysecretkey",
     resave: false,
     saveUninitialized: false,
-    store: store,
-    cookie: { maxAge: 1000 * 60 * 60 * 24 },
+    cookie: {
+      maxAge: 1000 * 60 * 60 * 24,
+      httpOnly: true,
+      sameSite: "none",
+      secure: false,
+    },
+    store: MongoStore.create({
+      mongoUrl: uri,
+      mongooseConnection: mongoose.connection,
+    }),
   })
 );
 
@@ -78,17 +91,9 @@ const limiter = rateLimit({
 });
 
 app.use(limiter);
-app.set("trust proxy", 1);
 
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
-
-app.use(
-  cors({
-    origin: "http://localhost:5173",
-    credentials: true,
-  })
-);
 
 // HTTP Requests
 app.get("/", (req, res) => {
@@ -97,7 +102,7 @@ app.get("/", (req, res) => {
 });
 
 app.post("/login", async (req, res) => {
-  const username = req.query.username;
+  const username = req.body.username;
   console.log(username);
   try {
     let user = await User.findOne({ user_id: username });
@@ -129,9 +134,11 @@ app.post("/login", async (req, res) => {
     req.session.user = username;
     console.log("Session user_id: ", req.session.user);
     console.log("yooo");
+    console.log(req.session);
     res.status(200).json({
       message: "Login successul",
       session: req.session,
+      user_id: username,
     });
   } catch (error) {
     res.status(500).json({
@@ -142,11 +149,11 @@ app.post("/login", async (req, res) => {
 });
 
 app.post("/get-transcript", async (req, res) => {
-  console.log(req.session);
+  console.log("this session: ", req.session);
   console.log(req.session.user);
   try {
     console.log("test");
-    const url = req.query.url;
+    const url = req.body.url;
 
     if (!url) {
       return res.status(400).json({
@@ -192,8 +199,8 @@ app.post("/get-transcript", async (req, res) => {
 });
 
 app.get("/qa", isLoggedIn, async (req, res) => {
-  const question = req.query.question;
-  const user_id = req.session.user_id;
+  const question = req.body.question;
+  const user_id = req.session.user;
   if (question) {
     try {
       const chatbot_res = await ANSWER(question, user_id);
@@ -252,10 +259,6 @@ const updateChatHistory = async (chatHistory, user_id) => {
 
 // langchain rag qa model
 const ANSWER = async (query, user_id) => {
-  await client.connect();
-  const myDatabase = client.db("studyscript");
-  const myCollection = myDatabase.collection("users");
-
   // fetch docs from database
   const user = await User.findOne({ user_id });
   const docs = user?.docs || [];

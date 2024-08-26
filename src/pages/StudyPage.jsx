@@ -2,6 +2,8 @@ import React, { useState } from "react";
 import YouTube from "react-youtube";
 import axios from "axios";
 
+axios.defaults.withCredentials = true;
+
 const StudyPage = () => {
   const [chatInput, setChatInput] = useState("");
   const [chatHistory, setChatHistory] = useState([]);
